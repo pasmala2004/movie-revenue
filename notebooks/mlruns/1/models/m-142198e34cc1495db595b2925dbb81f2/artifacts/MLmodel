@@ -1,0 +1,22 @@
+artifact_path: file:c:/Users/DELL/OneDrive/Documents/movie-revenue/notebooks/mlruns/1/models/m-142198e34cc1495db595b2925dbb81f2/artifacts
+flavors:
+  python_function:
+    data: model.ubj
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.13.5
+  xgboost:
+    code: null
+    data: model.ubj
+    model_class: xgboost.sklearn.XGBRegressor
+    model_format: ubj
+    xgb_version: 3.2.0
+mlflow_version: 3.11.1
+model_id: m-142198e34cc1495db595b2925dbb81f2
+model_size_bytes: 280498
+model_uuid: m-142198e34cc1495db595b2925dbb81f2
+prompts: null
+run_id: 2016f10877144e6f8eb668e01332bcc5
+utc_time_created: '2026-04-19 22:54:13.530697'
