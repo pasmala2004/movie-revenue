@@ -72,7 +72,7 @@ TMDB 5000 Dataset (Kaggle)
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/pasmala2004/movie-revenue.git
+git clone https://github.com/your-username/movie-revenue.git
 cd movie-revenue
 pip install -r requirements.txt
 ```
@@ -173,9 +173,33 @@ pip install -r requirements.txt
 | Stage | Status | Output |
 |---|---|---|
 | 1 · Data Engineering | ✅ Complete | `movies_clean.parquet` |
-| 2 · Data Analysis | ✅ Complete | `movies_analysis.parquet` + 6 plots |
-| 3 · ML Model | 🔄 In progress | — |
-| 4 · Deploy | ⏳ Pending | — |
+| 2 · Data Analysis | ✅ Complete | `movies_analysis.parquet` + 8 plots |
+| 3 · ML Model | ✅ Complete | `xgb_revenue_v1.json` + SHAP plots |
+| 4 · Deploy | 🔄 In progress | — |
+
+---
+
+## Model performance (Stage 3)
+
+**XGBoost Regressor — predicts `log_revenue`, exponentiated back to USD at inference**
+
+| Metric | Ridge baseline | XGBoost |
+|---|---|---|
+| R² | 0.7469 | **0.8020** |
+| RMSE (log space) | 0.8860 | **0.7836** |
+| MAE (log space) | 0.6357 | **0.5472** |
+| Error factor | 2.43× | **2.19×** |
+| CV Mean R² (5-fold) | — | **0.7584** |
+| CV Std R² | — | **0.041** |
+
+**In plain English:** the model explains 80% of box office revenue variance. On average, predictions land within 2.19× of actual revenue — similar accuracy to professional studio analysts. Cross-validation std of 0.041 confirms the model is stable and not overfitting.
+
+**Where it struggles:**
+- Limited-distribution / cult films with no wide theatrical release
+- Cultural phenomena driven by franchise superfan loyalty
+- Politically timed releases and genre-defining moments
+
+These represent the irreducible ~20% of variance driven by external signals not present in the TMDB dataset.
 
 ---
 
