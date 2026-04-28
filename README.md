@@ -1,6 +1,6 @@
 # Movie Revenue Prediction Pipeline
 
-An end-to-end machine learning system that predicts a film's opening weekend box office revenue from pre-release metadata — budget, cast, genre, director, and release timing. Built on the TMDB 5000 Movie Dataset.
+An end-to-end machine learning system that predicts a film's opening weekend box office revenue from pre-release metadata — budget, genre, director, and release timing. Built on the TMDB 5000 Movie Dataset.
 
 ---
 
@@ -18,10 +18,13 @@ movie-revenue/
 ├── notebooks/
 │   ├── stage1_data_engineering.ipynb
 │   ├── stage2_analysis.ipynb
-│   ├── stage3_model.ipynb          # coming in Stage 3
-│   └── stage4_deploy.ipynb         # coming in Stage 4
-├── src/                            # Reusable modules (coming in Stage 3+)
-├── models/                         # Saved model artifacts (coming in Stage 3)
+│   └── stage3_model.ipynb
+├── app/
+│   ├── main.py                     # FastAPI backend
+│   ├── predict.py                  # Prediction logic
+│   └── streamlit_app.py            # Frontend UI — Cinecast
+├── models/
+│   └── xgb_revenue_v1.json         # Trained XGBoost model
 ├── requirements.txt
 └── README.md
 ```
@@ -36,8 +39,7 @@ TMDB 5000 Dataset (Kaggle)
         ▼
 ┌─────────────────────┐
 │  Stage 1            │  Data Engineering
-│  Clean · Transform  │  4,803 → 3,213 films
-│  Save to Parquet    │  23 features
+│  Clean · Transform  │  4,803 → 3,213 films · 23 features
 └────────┬────────────┘
          │
          ▼
@@ -49,16 +51,16 @@ TMDB 5000 Dataset (Kaggle)
          │
          ▼
 ┌─────────────────────┐
-│  Stage 3            │  ML Model  ← in progress
-│  Train · Tune       │  XGBoost regressor
+│  Stage 3            │  ML Model
+│  Train · Tune       │  XGBoost · R²=0.80
 │  Evaluate · Explain │  SHAP explainability
 └────────┬────────────┘
          │
          ▼
 ┌─────────────────────┐
-│  Stage 4            │  Deployment  ← coming soon
-│  FastAPI endpoint   │  Streamlit demo UI
-│  Docker · Monitor   │  Drift monitoring
+│  Stage 4            │  Deployment ✅
+│  FastAPI endpoint   │  REST API · Streamlit UI
+│  Cinecast UI        │  Filmmaker insights · What-if scenarios
 └─────────────────────┘
          │
          ▼
@@ -93,30 +95,54 @@ jupyter nbconvert --to notebook --execute notebooks/stage1_data_engineering.ipyn
 
 # Stage 2 — analysis
 jupyter nbconvert --to notebook --execute notebooks/stage2_analysis.ipynb
+
+# Stage 3 — train model
+jupyter nbconvert --to notebook --execute notebooks/stage3_model.ipynb
 ```
 
-Or open the notebooks interactively in Jupyter and run cell by cell.
+### 4. Launch the app
+
+Open two terminals from the project root:
+
+```bash
+# Terminal 1 — API
+cd app && uvicorn main:app --reload --port 8000
+
+# Terminal 2 — UI
+cd app && streamlit run streamlit_app.py
+```
+
+Open `http://localhost:8501` in your browser.
+
+---
+
+## App features (Cinecast UI)
+
+**Revenue forecast** — low / predicted / high estimates with a ±2.19× confidence interval.
+
+**Model insights** — three contextual cards explaining each prediction: budget efficiency vs genre median, release window strength as % of peak month, and franchise effect.
+
+**Market context charts** — genre revenue comparison and seasonal calendar showing where the film sits historically.
+
+**Filmmaker recommendations** — actionable advice engine covering:
+- Release timing warnings for weak months (Sep, Oct, Jan, Apr)
+- Budget-to-ROI risk flags when return is below break-even
+- Horror-specific guidance on staying lean for maximum ROI
+- Animation franchise and merchandise strategy
+- Genre clarity guidance for marketing positioning
+- Franchise leverage opportunities for original films
+
+**What-if scenarios** — instant delta calculations: move to June, make it a franchise entry, cut budget 20%.
 
 ---
 
 ## Requirements
 
 ```
-pandas
-numpy
-pyarrow
-matplotlib
-scikit-learn
-xgboost
-shap
-mlflow
-fastapi
-uvicorn
-streamlit
-jupyter
+pandas · numpy · pyarrow · matplotlib
+scikit-learn · xgboost · shap · mlflow
+fastapi · uvicorn · streamlit · pydantic · requests · jupyter
 ```
-
-Install everything at once:
 
 ```bash
 pip install -r requirements.txt
@@ -128,60 +154,41 @@ pip install -r requirements.txt
 
 **Source:** [TMDB 5000 Movie Dataset](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata) via Kaggle
 
-**Files used:**
-- `tmdb_5000_movies.csv` — budget, revenue, genres, release date, keywords, runtime, popularity
-- `tmdb_5000_credits.csv` — full cast and crew with TMDB popularity scores
-
-**License:** Data sourced from [The Movie Database (TMDB)](https://www.themoviedb.org/) API under their terms of use.
+**License:** Data sourced from [The Movie Database (TMDB)](https://www.themoviedb.org/) under their terms of use.
 
 ---
 
-## Features
+## Features used by the model
 
 | Feature | Source | Description |
 |---|---|---|
-| `budget` | TMDB | Production budget in USD |
-| `log_budget` | Engineered | log(budget) — used as model input |
+| `log_budget` | Engineered | log(budget) — top feature by SHAP |
 | `runtime` | TMDB | Film length in minutes |
 | `popularity` | TMDB | Pre-release TMDB trending score |
-| `cast_popularity` | Engineered | Sum of top 3 billed actors' popularity scores |
-| `director_score` | Engineered | Director's median log revenue across all their films |
-| `is_franchise` | Engineered | 1 if film belongs to a franchise or sequel, 0 otherwise |
+| `director_score` | Engineered | Director's median log revenue across their films |
+| `is_franchise` | Engineered | 1 if sequel or franchise entry |
 | `release_month` | Engineered | Month of theatrical release (1–12) |
-| `release_dow` | Engineered | Day of week of release (0=Mon, 4=Fri) |
+| `release_dow` | Engineered | Day of week (0=Mon, 4=Fri) |
 | `is_summer` | Engineered | 1 if released June–August |
 | `is_holiday` | Engineered | 1 if released November–December |
-| `genre_*` | Engineered | Binary flags for 8 top genres |
+| `genre_*` | Engineered | Binary flags for 8 genres |
 
-**Target variable:** `log_revenue` — log-transformed box office revenue. Predictions are exponentiated back to USD at inference time.
+**Target:** `log_revenue` — exponentiated back to USD at inference time.
 
 ---
 
 ## Key findings from EDA (Stage 2)
 
-- **Budget is the strongest predictor** — log-log correlation with revenue is ~0.75
-- **Horror has the best ROI** — lowest budgets, consistent returns
-- **Animation and Adventure earn the most** in absolute revenue terms
-- **Franchise films earn roughly 2–3× standalone films** at the median
-- **Summer releases earn roughly 1.5–2× off-peak releases**
-- **Revenue is log-normally distributed** — model predicts log(revenue), not raw revenue
-
----
-
-## Stages status
-
-| Stage | Status | Output |
-|---|---|---|
-| 1 · Data Engineering | ✅ Complete | `movies_clean.parquet` |
-| 2 · Data Analysis | ✅ Complete | `movies_analysis.parquet` + 8 plots |
-| 3 · ML Model | ✅ Complete | `xgb_revenue_v1.json` + SHAP plots |
-| 4 · Deploy | 🔄 In progress | — |
+- **Budget is the strongest predictor** — correlation with revenue: 0.705
+- **Horror has the best ROI** — 2.9× median return per dollar spent
+- **Animation earns the most** in absolute terms — $197M median
+- **Franchise films earn 1.95× standalone films** at the median
+- **June is the best release month** — $112M median vs $27M in September
+- **Revenue is log-normally distributed** — model predicts log(revenue)
 
 ---
 
 ## Model performance (Stage 3)
-
-**XGBoost Regressor — predicts `log_revenue`, exponentiated back to USD at inference**
 
 | Metric | Ridge baseline | XGBoost |
 |---|---|---|
@@ -192,14 +199,18 @@ pip install -r requirements.txt
 | CV Mean R² (5-fold) | — | **0.7584** |
 | CV Std R² | — | **0.041** |
 
-**In plain English:** the model explains 80% of box office revenue variance. On average, predictions land within 2.19× of actual revenue — similar accuracy to professional studio analysts. Cross-validation std of 0.041 confirms the model is stable and not overfitting.
+The model explains 80% of revenue variance and is stable across all cross-validation folds. The irreducible ~20% is driven by signals outside the dataset — social media, pre-sale tickets, word of mouth, cultural timing.
 
-**Where it struggles:**
-- Limited-distribution / cult films with no wide theatrical release
-- Cultural phenomena driven by franchise superfan loyalty
-- Politically timed releases and genre-defining moments
+---
 
-These represent the irreducible ~20% of variance driven by external signals not present in the TMDB dataset.
+## Stages status
+
+| Stage | Status | Output |
+|---|---|---|
+| 1 · Data Engineering | ✅ Complete | `movies_clean.parquet` — 3,213 films |
+| 2 · Data Analysis | ✅ Complete | `movies_analysis.parquet` + 8 EDA plots |
+| 3 · ML Model | ✅ Complete | `xgb_revenue_v1.json` · R²=0.80 |
+| 4 · Deploy | ✅ Complete | FastAPI + Cinecast Streamlit UI |
 
 ---
 
