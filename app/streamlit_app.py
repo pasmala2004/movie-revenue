@@ -565,9 +565,28 @@ with right_col:
 
         with st.spinner("Running model..."):
             try:
-                r   = requests.post("http://localhost:8000/predict", json=payload, timeout=5)
-                res = r.json()
+                import sys
+                sys.path.append('../app')
+                from predict import predict_revenue
 
+                result = predict_revenue(
+                    budget         = budget_dollars,
+                    runtime        = runtime,
+                    popularity     = popularity,
+                    is_franchise   = is_franchise,
+                    director_score = director_score,
+                    release_month  = release_month,
+                    release_dow    = release_dow,
+                    genres         = genres,
+                )
+                res = {
+                    'predicted_revenue':     result['predicted_revenue'],
+                    'low_estimate':          result['low_estimate'],
+                    'high_estimate':         result['high_estimate'],
+                    'predicted_revenue_fmt': fmt_revenue(result['predicted_revenue']),
+                    'low_estimate_fmt':      fmt_revenue(result['low_estimate']),
+                    'high_estimate_fmt':     fmt_revenue(result['high_estimate']),
+                }
                 predicted_m = res['predicted_revenue'] / 1e6
                 low_m       = res['low_estimate']      / 1e6
                 high_m      = res['high_estimate']     / 1e6
